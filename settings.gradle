@@ -1,0 +1,5 @@
+rootProject.name = 'Jettyx'
+include 'jettyx-http2'
+include 'jettyx-http3'
+include 'jettyx-jackson'
+

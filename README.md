@@ -32,7 +32,7 @@ To include Jettyx in your project, add the following dependency:
 
 ### Gradle
 ```groovy
-implementation 'org.exploit:jettyx:0.1'
+implementation 'org.exploit:jettyx:0.1.1'
 ```
 
 ### Maven
@@ -40,7 +40,7 @@ implementation 'org.exploit:jettyx:0.1'
 <dependency>
     <groupId>org.exploit</groupId>
     <artifactId>jettyx</artifactId>
-    <version>0.1</version>
+    <version>0.1.1</version>
 </dependency>
 ```
 
@@ -52,8 +52,8 @@ For instance, we will use Jackson for serialization and enable HTTP/2 support. T
 
 ```groovy
 // Or jettyx-http3 for HTTP3
-implementation 'org.exploit:jettyx-http2:0.1'
-implementation 'org.exploit:jettyx-jackson:0.1'
+implementation 'org.exploit:jettyx-http2:0.1.1'
+implementation 'org.exploit:jettyx-jackson:0.1.1'
 ```
 Now call newBuilder to create a Jettyx instance and add relevant HTTP Mappers with adding supported HTTP versions.
 By default, Jettyx already handles HTTP/1.1 requests and http mapping for scalar types (String, Integer, etc).

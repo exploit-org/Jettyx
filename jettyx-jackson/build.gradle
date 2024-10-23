@@ -3,9 +3,6 @@ plugins {
     id 'java-library'
 }
 
-group = 'org.exploit'
-version = '0.1'
-
 repositories {
     mavenCentral()
 }

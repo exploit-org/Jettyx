@@ -3,11 +3,16 @@ plugins {
     id 'java-library'
 }
 
-group = 'org.exploit.http'
-version = '1.0'
+group = 'org.exploit'
+version = '0.1'
 
 repositories {
     mavenCentral()
+}
+
+ext {
+    projectName = 'Jettyx Jackson Support'
+    projectDescription = 'Adds Jackson support to Jettyx'
 }
 
 dependencies {

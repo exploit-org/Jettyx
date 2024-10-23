@@ -3,10 +3,15 @@ plugins {
 }
 
 group = 'org.exploit'
-version = '1.0'
+version = '0.1'
 
 repositories {
     mavenCentral()
+}
+
+ext {
+    projectName = 'Jettyx HTTP3 Support'
+    projectDescription = 'Adds support for HTTP/3 communication using Jetty.'
 }
 
 dependencies {

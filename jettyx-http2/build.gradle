@@ -2,11 +2,16 @@ plugins {
     id 'java'
 }
 
-group = 'org.exploit.http'
-version = '1.0'
+group = 'org.exploit'
+version = '0.1'
 
 repositories {
     mavenCentral()
+}
+
+ext {
+    projectName = 'Jettyx HTTP2 Support'
+    projectDescription = 'Adds support for HTTP/2 communication using Jetty.'
 }
 
 dependencies {

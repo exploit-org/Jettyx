@@ -1,4 +1,4 @@
-rootProject.name = 'Jettyx'
+rootProject.name = 'jettyx'
 include 'jettyx-http2'
 include 'jettyx-http3'
 include 'jettyx-jackson'

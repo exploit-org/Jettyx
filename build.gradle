@@ -1,10 +1,12 @@
 plugins {
     id 'java'
     id 'java-library'
+    id 'signing'
+    id 'tech.yanand.maven-central-publish' version '1.2.0'
 }
 
 group = 'org.exploit'
-version = '1.0'
+version = '0.1'
 
 repositories {
     mavenCentral()
@@ -25,6 +27,82 @@ dependencies {
     api 'org.eclipse.jetty:jetty-alpn-client:11.0.24'
     api 'org.eclipse.jetty:jetty-io:11.0.24'
     api 'org.eclipse.jetty:jetty-client:11.0.24'
+}
+
+ext {
+    projectName = "Jettyx"
+    projectDescription = "A Retrofit-like HTTP Client wrapper for Jetty"
+}
+
+allprojects {
+    apply plugin: 'java'
+    apply plugin: 'signing'
+    apply plugin: 'maven-publish'
+    apply plugin: 'tech.yanand.maven-central-publish'
+
+    java {
+        withSourcesJar()
+        withJavadocJar()
+    }
+
+    group = 'org.exploit'
+    version = '0.1'
+
+    afterEvaluate { p ->
+        publishing {
+            publications {
+                mavenJava(MavenPublication) {
+                    from components.java
+
+                    pom {
+                        name = p.ext.projectName
+                        description = p.ext.projectDescription
+                        url = 'https://github.com/exploit-org/Jettyx'
+
+                        licenses {
+                            license {
+                                name = 'BSD-2-Clause'
+                                url = 'https://github.com/exploit-org/Jettyx/blob/main/LICENSE.md'
+                            }
+                        }
+
+                        developers {
+                            developer {
+                                id = '0'
+                                name = 'Martin Belov'
+                                email = 'martin@exploit.org'
+                            }
+                        }
+
+                        scm {
+                            connection = 'scm:git:https://github.com/exploit-org/Jettyx.git'
+                            developerConnection = 'scm:git:ssh://github.com/exploit-org/Jettyx.git'
+                            url = 'https://github.com/exploit-org/Jettyx'
+                        }
+                    }
+                }
+            }
+
+            repositories {
+                maven {
+                    name = "Local"
+                    url = file("${buildDir}/repos/bundles")
+                }
+            }
+        }
+
+        signing {
+            sign publishing.publications.mavenJava
+        }
+
+        mavenCentral {
+            repoDir = layout.buildDirectory.dir('repos/bundles')
+
+            authToken = System.getenv("CENTRAL_MAVEN_TOKEN")
+
+            publishingType = 'USER_MANAGED'
+        }
+    }
 }
 
 jar {

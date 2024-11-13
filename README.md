@@ -32,7 +32,7 @@ To include Jettyx in your project, add the following dependency:
 
 ### Gradle
 ```groovy
-implementation 'org.exploit:jettyx:0.1.2'
+implementation 'org.exploit:jettyx:0.1.3'
 ```
 
 ### Maven

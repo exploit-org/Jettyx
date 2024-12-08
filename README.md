@@ -57,6 +57,7 @@ implementation 'org.exploit:jettyx-jackson:0.1.2'
 ```
 Now call newBuilder to create a Jettyx instance and add relevant HTTP Mappers with adding supported HTTP versions.
 By default, Jettyx already handles HTTP/1.1 requests and http mapping for scalar types (String, Integer, etc).
+
 ```java
 Jettyx jettyx = Jettyx.newBuilder()
     .addHttpMapper(JacksonHttpMapper.create())  // Using Jackson for serialization
@@ -94,6 +95,23 @@ ReqresApi reqres = jettyx.newApiClient("https:://reqres.in/")
         .create(ReqresApi.class);
 ```
 
+To enable rate limiting, Jettyx supports [Bucket4J](https://github.com/bucket4j/bucket4j) out of box. For this, simply create
+Bucket instance and pass it to the api client creator:
+```java
+var limit = Bandwidth.builder()
+       .capacity(10)
+       .refillGreedy(10, Duration.ofSeconds(1L))
+       .initialTokens(10)
+       .build();
+
+var bucket = Bucket.builder()
+       .addLimit(limit)
+       .build();
+
+ReqresApi reqres = jettyx.newApiClient("https://reqres.in/", new NoAuth(), bucket)
+        .create(ReqresApi.class);
+```
+Every called request waits and consumes **1** token **BEFORE** making the request in a blocking manner.
 #### Out of box authorization methods
 - **Basic Authentication (`BasicAuth`)**: Encodes username and password in the Authorization header using Base64.
 - **Bearer Authentication (`BearerAuth`)**: Adds a token in the Authorization header using the Bearer scheme.

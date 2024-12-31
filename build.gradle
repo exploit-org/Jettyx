@@ -48,7 +48,7 @@ allprojects {
     }
 
     group = 'org.exploit'
-    version = '0.1.4'
+    version = '0.1.5'
 
     afterEvaluate { p ->
         publishing {

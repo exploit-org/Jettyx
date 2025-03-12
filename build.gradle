@@ -48,7 +48,7 @@ allprojects {
     }
 
     group = 'org.exploit'
-    version = '0.1.5'
+    version = '0.1.6'
 
     afterEvaluate { p ->
         publishing {
@@ -101,8 +101,6 @@ allprojects {
             repoDir = layout.buildDirectory.dir('repos/bundles')
 
             authToken = System.getenv("CENTRAL_MAVEN_TOKEN")
-
-            publishingType = 'USER_MANAGED'
         }
     }
 }

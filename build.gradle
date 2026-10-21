@@ -10,32 +10,15 @@ repositories {
     mavenCentral()
 }
 
-dependencies {
-    testImplementation platform('org.junit:junit-bom:5.11.4')
-    testImplementation 'org.junit.jupiter:junit-jupiter'
-    testImplementation project(":jettyx-http2")
-    testImplementation project(":jettyx-jackson")
-
-    testAnnotationProcessor('org.projectlombok:lombok:1.18.34')
-    testCompileOnly 'org.projectlombok:lombok:1.18.34'
-
-    compileOnly 'org.projectlombok:lombok:1.18.34'
-    annotationProcessor 'org.projectlombok:lombok:1.18.34'
-
-    api 'org.eclipse.jetty:jetty-alpn-client:11.0.24'
-    api 'org.eclipse.jetty:jetty-io:11.0.24'
-    api 'org.eclipse.jetty:jetty-client:11.0.24'
-    api 'com.bucket4j:bucket4j-core:8.10.1'
-}
 
 ext {
     junitVersion = '5.11.4'
     projectName = "Jettyx"
-    projectDescription = "A Retrofit-like HTTP Client wrapper for Jetty"
+    projectDescription = "A declarative HTTP client for Java"
 }
 
 allprojects {
-    apply plugin: 'java'
+    apply plugin: 'java-library'
     apply plugin: 'jacoco'
     dependencies {
         testImplementation platform("org.junit:junit-bom:${rootProject.ext.junitVersion}")
@@ -94,8 +77,8 @@ allprojects {
                     from components.java
 
                     pom {
-                        name = p.ext.projectName
-                        description = p.ext.projectDescription
+                        name = p.findProperty('projectName') ?: 'Jettyx Jackson Support'
+                        description = p.findProperty('projectDescription') ?: 'Adds Jackson support to Jettyx'
                         url = 'https://github.com/exploit-org/Jettyx'
 
                         licenses {
@@ -139,14 +122,6 @@ allprojects {
 
             authToken = System.getenv("CENTRAL_MAVEN_TOKEN")
         }
-    }
-}
-
-jar {
-    setDuplicatesStrategy(DuplicatesStrategy.EXCLUDE)
-
-    from(configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
-        exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
     }
 }
 

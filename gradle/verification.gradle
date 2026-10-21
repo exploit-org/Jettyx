@@ -1,0 +1,55 @@
+tasks.register('verifyLibraryArtifacts') {
+    group = 'verification'
+    description = 'Checks thin JAR contents and published dependency metadata.'
+    dependsOn allprojects.collectMany { p ->
+        [p.tasks.named('jar'), p.tasks.named('generatePomFileForMavenPublication')]
+    }
+
+    doLast {
+        if (!configurations.runtimeClasspath.resolvedConfiguration.resolvedArtifacts.empty)
+            throw new GradleException('Jettyx core must have zero runtime dependencies.')
+
+        allprojects.each { p ->
+            def jarFile = p.tasks.named('jar').get().archiveFile.get().asFile
+            new java.util.jar.JarFile(jarFile).withCloseable { jar ->
+                def foreignClasses = jar.entries().findAll {
+                    it.name.endsWith('.class') && !it.name.startsWith('org/exploit/jettyx/')
+                }
+
+                if (!foreignClasses.empty)
+                    throw new GradleException("${p.name} contains bundled dependency classes: ${foreignClasses*.name}")
+
+                if (p != rootProject && jar.getEntry('org/exploit/jettyx/Jettyx.class') != null)
+                    throw new GradleException("${p.name} must depend on core instead of bundling it.")
+            }
+
+            def pomFile = p.tasks.named('generatePomFileForMavenPublication').get().destination
+            def pom = new XmlSlurper().parse(pomFile)
+
+            if (pom.version.text() != rootProject.version.toString())
+                throw new GradleException("${p.name} has inconsistent publication version.")
+
+            def dependencies = pom.dependencies.dependency
+            if (p == rootProject && !dependencies.empty)
+                throw new GradleException('Jettyx core POM must not declare dependencies.')
+
+            if (p != rootProject) {
+                def core = dependencies.find { it.groupId.text() == rootProject.group && it.artifactId.text() == rootProject.name }
+                def jackson = dependencies.find { it.groupId.text() == 'com.fasterxml.jackson.core' && it.artifactId.text() == 'jackson-databind' }
+                def bom = pom.dependencyManagement.dependencies.dependency.find {
+                    it.groupId.text() == 'com.fasterxml.jackson' && it.artifactId.text() == 'jackson-bom'
+                }
+
+                if (core.version.text() != rootProject.version.toString() || core.scope.text() != 'compile')
+                    throw new GradleException('Jackson module must publish its core API dependency.')
+
+                if (jackson.scope.text() != 'compile' || bom.version.text() != rootProject.ext.jacksonVersion || bom.scope.text() != 'import')
+                    throw new GradleException('Jackson module must publish Jackson Databind with the configured Jackson BOM.')
+            }
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyLibraryArtifacts')
+}

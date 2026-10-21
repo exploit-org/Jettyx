@@ -1,30 +1,37 @@
 plugins {
-    id 'java'
-    id 'jacoco'
     id 'java-library'
-    id 'signing'
+    id 'jacoco'
     id 'tech.yanand.maven-central-publish' version '1.2.0'
 }
 
-repositories {
-    mavenCentral()
-}
-
+group = 'org.exploit'
+version = findProperty('releaseVersion') ?: '0.1.6'
 
 ext {
     jacksonVersion = '2.22.4'
     junitVersion = '5.11.4'
-    projectName = "Jettyx"
-    projectDescription = "A declarative HTTP client for Java"
 }
 
 allprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'jacoco'
+
+    group = rootProject.group
+    version = rootProject.version
+
     repositories {
         mavenCentral()
     }
 
-    apply plugin: 'java-library'
-    apply plugin: 'jacoco'
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+
+        withSourcesJar()
+        withJavadocJar()
+    }
+
     dependencies {
         testImplementation platform("org.junit:junit-bom:${rootProject.ext.junitVersion}")
         testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -59,77 +66,27 @@ allprojects {
         }
     }
 
-    apply plugin: 'signing'
-    apply plugin: 'maven-publish'
-    apply plugin: 'tech.yanand.maven-central-publish'
+    jacocoTestCoverageVerification {
+        dependsOn tasks.named('test')
 
-    java {
-        withSourcesJar()
-        withJavadocJar()
-
-        toolchain {
-            languageVersion = JavaLanguageVersion.of(17)
-        }
-    }
-
-    group = 'org.exploit'
-    version = '0.1.6'
-
-    afterEvaluate { p ->
-        publishing {
-            publications {
-                mavenJava(MavenPublication) {
-                    from components.java
-
-                    pom {
-                        name = p.findProperty('projectName') ?: 'Jettyx Jackson Support'
-                        description = p.findProperty('projectDescription') ?: 'Adds Jackson support to Jettyx'
-                        url = 'https://github.com/exploit-org/Jettyx'
-
-                        licenses {
-                            license {
-                                name = 'BSD-2-Clause'
-                                url = 'https://github.com/exploit-org/Jettyx/blob/main/LICENSE.md'
-                            }
-                        }
-
-                        developers {
-                            developer {
-                                id = '0'
-                                name = 'Martin Belov'
-                                email = 'martin@exploit.org'
-                            }
-                        }
-
-                        scm {
-                            connection = 'scm:git:https://github.com/exploit-org/Jettyx.git'
-                            developerConnection = 'scm:git:ssh://github.com/exploit-org/Jettyx.git'
-                            url = 'https://github.com/exploit-org/Jettyx'
-                        }
-                    }
+        violationRules {
+            rule {
+                limit {
+                    counter = 'LINE'
+                    minimum = 0.95
                 }
-            }
-
-            repositories {
-                maven {
-                    name = "Local"
-                    url = file("${buildDir}/repos/bundles")
+                limit {
+                    counter = 'BRANCH'
+                    minimum = 0.90
                 }
             }
         }
+    }
 
-        signing {
-            sign publishing.publications.mavenJava
-        }
-
-        mavenCentral {
-            repoDir = layout.buildDirectory.dir('repos/bundles')
-
-            authToken = System.getenv("CENTRAL_MAVEN_TOKEN")
-        }
+    tasks.named('check') {
+        dependsOn tasks.named('jacocoTestCoverageVerification')
     }
 }
 
-test {
-    useJUnitPlatform()
-}
+apply from: 'gradle/publishing.gradle'
+apply from: 'gradle/verification.gradle'

@@ -1,0 +1,211 @@
+def firstPropertyOrEnv = { List<String> propertyNames, List<String> envNames ->
+    for (def propertyName : propertyNames) {
+        def value = findProperty(propertyName)
+        if (value != null && !value.toString().isBlank())
+            return value.toString()
+    }
+
+    for (def envName : envNames) {
+        def value = System.getenv(envName)
+        if (value != null && !value.isBlank())
+            return value
+    }
+
+    return null
+}
+
+def splitBasicAuthToken = { token ->
+    if (token == null || token.toString().isBlank())
+        return null
+
+    def value = token.toString()
+    if (!value.contains(':')) {
+        try {
+            value = new String(Base64.decoder.decode(value), java.nio.charset.StandardCharsets.UTF_8)
+        } catch (IllegalArgumentException ignored) {
+            return null
+        }
+    }
+
+    def separator = value.indexOf(':')
+    if (separator <= 0 || separator == value.length() - 1)
+        return null
+
+    return [value.substring(0, separator), value.substring(separator + 1)]
+}
+
+def centralToken = firstPropertyOrEnv(['centralMavenToken'], ['CENTRAL_MAVEN_TOKEN'])
+def basicCredentials = splitBasicAuthToken(centralToken)
+def snapshotUrl = firstPropertyOrEnv(
+        ['snapshotRepositoryUrl', 'mavenCentralSnapshotRepositoryUrl'],
+        ['SNAPSHOT_REPOSITORY_URL', 'MAVEN_CENTRAL_SNAPSHOT_REPOSITORY_URL']
+) ?: 'https://central.sonatype.com/repository/maven-snapshots/'
+def snapshotUsername = firstPropertyOrEnv(
+        ['snapshotRepositoryUsername', 'mavenCentralUsername', 'centralMavenUsername', 'centralUsername', 'sonatypeUsername'],
+        ['SNAPSHOT_REPOSITORY_USERNAME', 'MAVEN_CENTRAL_USERNAME', 'CENTRAL_MAVEN_USERNAME', 'CENTRAL_USERNAME', 'SONATYPE_USERNAME']
+) ?: basicCredentials?.get(0)
+def snapshotPassword = firstPropertyOrEnv(
+        ['snapshotRepositoryPassword', 'mavenCentralPassword', 'centralMavenPassword', 'centralPassword', 'sonatypePassword'],
+        ['SNAPSHOT_REPOSITORY_PASSWORD', 'MAVEN_CENTRAL_PASSWORD', 'CENTRAL_MAVEN_PASSWORD', 'CENTRAL_PASSWORD', 'SONATYPE_PASSWORD']
+) ?: basicCredentials?.get(1)
+
+def metadata = [
+        ':'              : [name: 'Jettyx', description: 'A zero-dependency declarative HTTP client for Java.'],
+        ':jettyx-jackson': [name: 'Jettyx Jackson Support', description: 'Jackson JSON mapping for Jettyx.']
+]
+
+mavenCentral {
+    repoDir = layout.buildDirectory.dir('repos/central-bundles')
+    authToken = providers.gradleProperty('centralMavenToken')
+            .orElse(providers.environmentVariable('CENTRAL_MAVEN_TOKEN'))
+    publishingType = 'USER_MANAGED'
+}
+
+tasks.register('validateMavenCentralSnapshotPublication') {
+    group = 'publishing'
+    description = 'Validates Maven Central snapshot publishing configuration.'
+
+    doLast {
+        if (!version.toString().endsWith('-SNAPSHOT'))
+            throw new GradleException("Snapshot publication requires -PreleaseVersion=<version>-SNAPSHOT; current version is ${version}.")
+
+        if (!snapshotUsername || !snapshotPassword)
+            throw new GradleException('Missing Maven Central snapshot credentials. Set snapshotRepositoryUsername/snapshotRepositoryPassword or Maven Central/Sonatype credentials.')
+    }
+}
+
+tasks.register('prepareCentralBundle', Delete) {
+    delete layout.buildDirectory.dir('repos/central-bundles')
+}
+
+def signingKey = findProperty('signingKey')
+def signingPassword = findProperty('signingPassword')
+
+allprojects { p ->
+    apply plugin: 'maven-publish'
+    apply plugin: 'signing'
+
+    publishing {
+        publications {
+            maven(MavenPublication) {
+                from components.java
+
+                pom {
+                    name = metadata[p.path].name
+                    description = metadata[p.path].description
+                    url = rootProject.findProperty('pomUrl') ?: 'https://github.com/exploit-org/Jettyx'
+
+                    licenses {
+                        license {
+                            name = 'BSD-2-Clause'
+                            url = 'https://github.com/exploit-org/Jettyx/blob/main/LICENSE.md'
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id = rootProject.findProperty('pomDeveloperId') ?: '0'
+                            name = rootProject.findProperty('pomDeveloperName') ?: 'Martin Belov'
+                            email = rootProject.findProperty('pomDeveloperEmail') ?: 'martin@exploit.org'
+                        }
+                    }
+
+                    scm {
+                        connection = rootProject.findProperty('pomScmConnection') ?: 'scm:git:https://github.com/exploit-org/Jettyx.git'
+                        developerConnection = rootProject.findProperty('pomScmDeveloperConnection') ?: 'scm:git:ssh://github.com/exploit-org/Jettyx.git'
+                        url = rootProject.findProperty('pomScmUrl') ?: 'https://github.com/exploit-org/Jettyx'
+                    }
+                }
+            }
+        }
+
+        repositories {
+            maven {
+                name = 'CentralBundle'
+                url = rootProject.layout.buildDirectory.dir('repos/central-bundles')
+            }
+
+            maven {
+                name = 'MavenCentralSnapshots'
+                url = uri(snapshotUrl)
+                mavenContent {
+                    snapshotsOnly()
+                }
+
+                if (snapshotUsername && snapshotPassword) {
+                    credentials {
+                        username = snapshotUsername
+                        password = snapshotPassword
+                    }
+                }
+            }
+        }
+    }
+
+    tasks.matching {
+        it.name == 'publishMavenPublicationToCentralBundleRepository'
+    }.configureEach {
+        dependsOn rootProject.tasks.named('prepareCentralBundle')
+    }
+
+    tasks.matching {
+        it.name == 'publishAllPublicationsToMavenCentralSnapshotsRepository' ||
+                it.name == 'publishMavenPublicationToMavenCentralSnapshotsRepository'
+    }.configureEach {
+        dependsOn rootProject.tasks.named('validateMavenCentralSnapshotPublication')
+    }
+
+    signing {
+        if (signingKey) {
+            def decodedKey = new String(Base64.mimeDecoder.decode(signingKey.toString()), java.nio.charset.StandardCharsets.UTF_8)
+
+            if (!decodedKey.startsWith('-----BEGIN PGP PRIVATE KEY BLOCK-----'))
+                throw new GradleException('signingKey is not base64 of an armored private key')
+
+            useInMemoryPgpKeys(decodedKey, signingPassword?.toString())
+        }
+
+        required {
+            gradle.taskGraph.allTasks.any { task ->
+                task.name.toLowerCase(Locale.ROOT).contains('publish') ||
+                        task.name.toLowerCase(Locale.ROOT).contains('sign')
+            }
+        }
+
+        sign publishing.publications.maven
+    }
+}
+
+tasks.register('publishAllToCentralBundle') {
+    group = 'publishing'
+    description = 'Stages all Jettyx publications in build/repos/central-bundles.'
+    dependsOn allprojects.collect { it.tasks.named('publishAllPublicationsToCentralBundleRepository') }
+}
+
+tasks.register('publishAllToMavenCentralPortal') {
+    group = 'publishing'
+    description = 'Uploads all Jettyx publications to Maven Central Portal for manual release.'
+    dependsOn tasks.named('publishToMavenCentralPortal')
+}
+
+tasks.register('publishAllToMavenCentralSnapshots') {
+    group = 'publishing'
+    description = 'Publishes all Jettyx snapshot publications to Maven Central.'
+    dependsOn allprojects.collect { it.tasks.named('publishAllPublicationsToMavenCentralSnapshotsRepository') }
+}
+
+tasks.register('publishAllToSnapshotRepository') {
+    group = 'publishing'
+    description = 'Alias for publishAllToMavenCentralSnapshots.'
+    dependsOn tasks.named('publishAllToMavenCentralSnapshots')
+}
+
+tasks.register('publishAllToMavenLocal') {
+    group = 'publishing'
+    description = 'Publishes all Jettyx publications to the local Maven repository.'
+    dependsOn allprojects.collect { it.tasks.named('publishToMavenLocal') }
+}
+
+tasks.named('zipBundleForUpload') {
+    dependsOn tasks.named('publishAllToCentralBundle')
+}

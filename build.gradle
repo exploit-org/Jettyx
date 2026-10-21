@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'jacoco'
     id 'java-library'
     id 'signing'
     id 'tech.yanand.maven-central-publish' version '1.2.0'
@@ -10,7 +11,7 @@ repositories {
 }
 
 dependencies {
-    testImplementation platform('org.junit:junit-bom:5.9.1')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation project(":jettyx-http2")
     testImplementation project(":jettyx-jackson")
@@ -28,12 +29,48 @@ dependencies {
 }
 
 ext {
+    junitVersion = '5.11.4'
     projectName = "Jettyx"
     projectDescription = "A Retrofit-like HTTP Client wrapper for Jetty"
 }
 
 allprojects {
     apply plugin: 'java'
+    apply plugin: 'jacoco'
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${rootProject.ext.junitVersion}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    sourceSets.test {
+        java.srcDir rootProject.file('src/testFixtures/java')
+        resources.srcDir rootProject.file('src/testFixtures/resources')
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+
+    tasks.withType(Javadoc).configureEach {
+        options.encoding = 'UTF-8'
+        options.addBooleanOption('Xdoclint:none', true)
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+        systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
+        finalizedBy tasks.named('jacocoTestReport')
+    }
+
+    jacocoTestReport {
+        reports {
+            xml.required = true
+            html.required = true
+        }
+    }
+
     apply plugin: 'signing'
     apply plugin: 'maven-publish'
     apply plugin: 'tech.yanand.maven-central-publish'

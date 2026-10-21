@@ -12,12 +12,17 @@ repositories {
 
 
 ext {
+    jacksonVersion = '2.22.4'
     junitVersion = '5.11.4'
     projectName = "Jettyx"
     projectDescription = "A declarative HTTP client for Java"
 }
 
 allprojects {
+    repositories {
+        mavenCentral()
+    }
+
     apply plugin: 'java-library'
     apply plugin: 'jacoco'
     dependencies {
